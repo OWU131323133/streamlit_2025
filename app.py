@@ -1,11 +1,11 @@
 import streamlit as st
 import datetime
 import pandas as pd
-import plotly.express as px
-import re  # ← 追加：時刻のバリデーション用
+import re
+
 
 st.title("ToDoリストアプリ")
-st.caption("優先度・期限・カテゴリ管理付きのToDoリスト + 進捗グラフ + メモ＆画像機能")
+st.caption("優先度・期限・カテゴリ管理付きのToDoリスト + メモ＆画像機能")
 
 # ToDoリストとカテゴリの初期化
 if "todo_list" not in st.session_state:
@@ -87,37 +87,6 @@ if filter_category == "すべて":
     filtered_tasks = st.session_state.todo_list
 else:
     filtered_tasks = [t for t in st.session_state.todo_list if t["category"] == filter_category]
-
-# 進捗グラフ（全体）
-st.subheader("📊 進捗状況")
-if st.session_state.todo_list:
-    total = len(st.session_state.todo_list)
-    done = sum(t["done"] for t in st.session_state.todo_list)
-    not_done = total - done
-
-    df = pd.DataFrame({
-        "Status": pd.Categorical(
-            ["未完了", "完了"],
-            categories=["未完了", "完了"],
-            ordered=True
-        ),
-        "Count": [not_done, done]
-    })
-
-    fig = px.pie(
-        df,
-        names="Status",
-        values="Count",
-        title="タスク進捗状況",
-        color="Status",
-        color_discrete_map={
-            "未完了": "#ffc0cb",
-            "完了": "#b0e0e6"
-        }
-    )
-    st.plotly_chart(fig, use_container_width=True)
-else:
-    st.info("まだタスクがありません。")
 
 # ToDoリスト表示
 st.subheader("📝 タスクリスト")
