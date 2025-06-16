@@ -3,7 +3,6 @@ import datetime
 import pandas as pd
 import re
 
-
 st.title("ToDoリストアプリ")
 st.caption("優先度・期限・カテゴリ管理付きのToDoリスト + メモ＆画像機能")
 
@@ -16,7 +15,7 @@ if "categories" not in st.session_state:
 
 categories = st.session_state.categories
 
-# カテゴリ管理フォーム
+# --- カテゴリ管理フォーム ---
 st.subheader("🛠️ カテゴリ管理")
 with st.form("category_form", clear_on_submit=True):
     new_category = st.text_input("新しいカテゴリを追加", placeholder="例: 家事")
@@ -30,18 +29,16 @@ with st.form("category_form", clear_on_submit=True):
             else:
                 st.session_state.categories.append(new_category)
                 st.success(f"カテゴリ「{new_category}」を追加しました")
-                st.rerun()
         elif category_to_delete != "（選択なし）":
             if any(t["category"] == category_to_delete for t in st.session_state.todo_list):
                 st.warning("このカテゴリを使っているタスクがあるため削除できません。")
             else:
-                st.session_state.categories.remove(category_to_delete)
+                st.session_state.categories = [c for c in categories if c != category_to_delete]
                 st.success(f"カテゴリ「{category_to_delete}」を削除しました")
-                st.rerun()
         else:
             st.info("カテゴリの追加か削除を行ってください。")
 
-# タスク追加フォーム
+# --- タスク追加フォーム ---
 st.subheader("🆕 新しいタスクを追加")
 with st.form("add_task_form", clear_on_submit=True):
     new_task = st.text_input("タスク内容", placeholder="例: レポートを書く")
@@ -57,16 +54,22 @@ with st.form("add_task_form", clear_on_submit=True):
     image = st.file_uploader("📷 画像を添付（任意）", type=["png", "jpg", "jpeg"])
     submitted = st.form_submit_button("タスクを追加")
 
+    def is_valid_time(t):
+        try:
+            return re.match(time_pattern, t) is not None
+        except Exception:
+            return False
+
     if submitted:
         if not new_task:
             st.error("タスク内容を入力してください。")
-        elif not re.match(time_pattern, deadline_time_str):
+        elif not is_valid_time(deadline_time_str):
             st.error("時刻の形式が正しくありません。例: 14:30（24時間表記）")
         else:
             deadline_time = datetime.datetime.strptime(deadline_time_str, "%H:%M").time()
             deadline = datetime.datetime.combine(deadline_date, deadline_time)
 
-            st.session_state.todo_list.append({
+            new_entry = {
                 "task": new_task,
                 "done": False,
                 "priority": priority,
@@ -74,11 +77,11 @@ with st.form("add_task_form", clear_on_submit=True):
                 "category": category,
                 "memo": memo,
                 "image": image
-            })
+            }
+            st.session_state.todo_list = st.session_state.todo_list + [new_entry]
             st.success(f"「{new_task}」を追加しました！")
-            st.rerun()
 
-# カテゴリで絞り込み
+# --- カテゴリで絞り込み ---
 st.subheader("📂 カテゴリ別表示")
 filter_category = st.selectbox("表示するカテゴリ", ["すべて"] + categories)
 
@@ -88,7 +91,7 @@ if filter_category == "すべて":
 else:
     filtered_tasks = [t for t in st.session_state.todo_list if t["category"] == filter_category]
 
-# ToDoリスト表示
+# --- ToDoリスト表示 ---
 st.subheader("📝 タスクリスト")
 
 if not filtered_tasks:
@@ -100,9 +103,11 @@ else:
             label = f"{item['task']}（優先度: {item['priority']}、期限: {item['deadline'].strftime('%Y-%m-%d %H:%M')}）"
             checked = st.checkbox(label, value=item["done"], key=f"checkbox_{i}")
             if checked != item["done"]:
+                # 元リストのインデックスを特定して更新
                 idx = st.session_state.todo_list.index(item)
-                st.session_state.todo_list[idx]["done"] = checked
-                st.rerun()
+                todo_list_copy = st.session_state.todo_list.copy()
+                todo_list_copy[idx]["done"] = checked
+                st.session_state.todo_list = todo_list_copy
 
             if item.get("memo"):
                 st.markdown(f"**📝 メモ:** {item['memo']}")
@@ -112,24 +117,25 @@ else:
 
         with col2:
             if st.button("🗑️", key=f"delete_{i}"):
-                st.session_state.todo_list.remove(item)
+                todo_list_copy = [t for t in st.session_state.todo_list if t != item]
+                st.session_state.todo_list = todo_list_copy
                 st.success("タスクを削除しました")
-                st.rerun()
+
         with col3:
             st.write(f"📁 {item['category']}")
 
-# 一括操作
+# --- 一括操作 ---
 if st.session_state.todo_list:
     st.markdown("---")
     col1, col2 = st.columns(2)
     with col1:
         if st.button("✅ 全て完了にする"):
-            for item in st.session_state.todo_list:
+            todo_list_copy = st.session_state.todo_list.copy()
+            for item in todo_list_copy:
                 item["done"] = True
+            st.session_state.todo_list = todo_list_copy
             st.success("全てのタスクを完了にしました！")
-            st.rerun()
     with col2:
         if st.button("🧹 完了済みを削除"):
             st.session_state.todo_list = [t for t in st.session_state.todo_list if not t["done"]]
             st.success("完了済みタスクを削除しました")
-            st.rerun()
